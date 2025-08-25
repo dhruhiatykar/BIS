@@ -1,0 +1,69 @@
+import random
+import math
+
+cities = [(0, 0), (1, 3), (4, 3), (6, 1), (3, 0)]
+
+def dist(a, b):
+    return math.sqrt((a[0] - b[0])**2 + (a[1] - b[1])**2)
+
+def route_distance(route):
+    return sum(dist(cities[route[i]], cities[route[(i + 1) % len(route)]]) for i in range(len(route)))
+
+def fitness(route):
+    return 1 / route_distance(route)
+
+def init_population(size):
+    base = list(range(len(cities)))
+    return [random.sample(base, len(base)) for _ in range(size)]
+
+def select(pop, fits):
+    total = sum(fits)
+    pick = random.uniform(0, total)
+    curr = 0
+    for i, f in enumerate(fits):
+        curr += f
+        if curr > pick:
+            return pop[i]
+
+def crossover(p1, p2):
+    a, b = sorted(random.sample(range(len(p1)), 2))
+    child = [None] * len(p1)
+    child[a:b] = p1[a:b]
+    ptr = 0
+    for x in p2:
+        if x not in child:
+            while child[ptr] is not None:
+                ptr += 1
+            child[ptr] = x
+    return child
+
+def mutate(route):
+    i, j = random.sample(range(len(route)), 2)
+    route[i], route[j] = route[j], route[i]
+    return route
+
+POP_SIZE = 4
+GENERATIONS = 5
+
+pop = init_population(POP_SIZE)
+
+for gen in range(GENERATIONS):
+    fits = [fitness(r) for r in pop]
+    best_route = pop[fits.index(max(fits))]
+    print(f"Gen {gen + 1}: Best distance = {route_distance(best_route):.2f}, Route = {best_route}")
+
+    new_pop = []
+    for _ in range(POP_SIZE):
+        p1, p2 = select(pop, fits), select(pop, fits)
+        child = crossover(p1, p2)
+        if random.random() < 0.2:
+            child = mutate(child)
+        new_pop.append(child)
+
+    pop = new_pop
+
+fits = [fitness(r) for r in pop]
+best_route = pop[fits.index(max(fits))]
+
+print("\nFinal Best Route:", best_route)
+print("Final Best Distance:", route_distance(best_route))
