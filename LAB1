@@ -1,0 +1,111 @@
+import random
+import math
+from dataclasses import dataclass
+from typing import List, Tuple
+
+BIT_LEN = 5   # 5-bit chromosome
+LOW, HIGH = 0, 31
+
+def encode(x: int) -> str:
+    return format(x, f"0{BIT_LEN}b")
+
+def decode(bits: str) -> int:
+    return int(bits, 2)
+
+def fitness(x: int) -> int:
+    return x * x
+
+def single_point_crossover(p1: str, p2: str, point: int) -> Tuple[str, str]:
+    return p1[:point] + p2[point:], p2[:point] + p1[point:]
+
+def mutate(bits: str, rate: float) -> str:
+    out = []
+    for ch in bits:
+        if random.random() < rate:
+            out.append('1' if ch == '0' else '0')
+        else:
+            out.append(ch)
+    return "".join(out)
+
+def roulette_select(pop: List[str]) -> List[str]:
+    xs = [decode(b) for b in pop]
+    fs = [fitness(x) for x in xs]
+    total = sum(fs)
+    if total == 0:
+        return random.choices(pop, k=len(pop))
+    probs = [f / total for f in fs]
+
+    cum = []
+    acc = 0.0
+    for p in probs:
+        acc += p
+        cum.append(acc)
+
+    sel = []
+    for _ in range(len(pop)):
+        r = random.random()
+        for i, c in enumerate(cum):
+            if r <= c:
+                sel.append(pop[i])
+                break
+    return sel
+
+@dataclass
+class GAConfig:
+    population_size: int = 12
+    bit_len: int = BIT_LEN
+    crossover_rate: float = 0.9
+    mutation_rate: float = 1.0 / BIT_LEN
+    generations: int = 20
+
+def evolve(config: GAConfig, seed_pop: List[str] = None) -> Tuple[List[str], List[Tuple[int,int]]]:
+    if seed_pop is None:
+        pop = [encode(random.randint(LOW, HIGH)) for _ in range(config.population_size)]
+    else:
+        pop = seed_pop[:]
+        while len(pop) < config.population_size:
+            pop.append(encode(random.randint(LOW, HIGH)))
+        pop = pop[:config.population_size]
+
+    history = []
+    for g in range(config.generations):
+        xs = [decode(b) for b in pop]
+        fs = [fitness(x) for x in xs]
+        best = max(zip(xs, fs), key=lambda t: t[1])
+        history.append(best)
+
+        mating = roulette_select(pop)
+        next_pop = []
+        for i in range(0, config.population_size, 2):
+            p1, p2 = mating[i], mating[i+1]
+            if random.random() < config.crossover_rate:
+                point = random.randint(1, config.bit_len - 1)
+                c1, c2 = single_point_crossover(p1, p2, point)
+                next_pop.extend([c1, c2])
+            else:
+                next_pop.extend([p1, p2])
+
+        next_pop = [mutate(b, config.mutation_rate) for b in next_pop]
+        pop = next_pop
+
+    xs = [decode(b) for b in pop]
+    fs = [fitness(x) for x in xs]
+    best = max(zip(xs, fs), key=lambda t: t[1])
+    history.append(best)
+
+    return pop, history
+
+if __name__ == "__main__":
+    random.seed(42)
+    cfg = GAConfig(population_size=12, generations=5)  # generations set to 5
+    init_bits = ["01100", "11001", "00101", "10011"]
+    final_pop, hist = evolve(cfg, seed_pop=init_bits)
+
+    print("Final Population:")
+    for b in final_pop:
+        x = decode(b)
+        print(f"{b} -> x={x}, fitness={fitness(x)}")
+
+    print("\nBest per generation:")
+    for gen, (x, f) in enumerate(hist):
+        print(f"Gen {gen}: x={x}, fitness={f}")
