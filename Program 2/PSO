@@ -1,0 +1,57 @@
+import random
+
+def power_consumption(position):
+    x, y = position
+    return x**2 + y**2
+
+num_particles = 30
+num_iterations = 100
+w = 0.5
+c1 = 1.5
+c2 = 1.5
+
+x_min, x_max = 0.1, 2.0
+y_min, y_max = 1.0, 10.0
+
+particles = []
+for _ in range(num_particles):
+    position = [random.uniform(x_min, x_max), random.uniform(y_min, y_max)]
+    velocity = [random.uniform(-1, 1), random.uniform(-1, 1)]
+    particles.append({
+        'position': position,
+        'velocity': velocity,
+        'best_position': position[:],
+        'best_score': power_consumption(position)
+    })
+
+global_best = min(particles, key=lambda p: p['best_score'])
+global_best_position = global_best['best_position'][:]
+global_best_score = global_best['best_score']
+
+for _ in range(num_iterations):
+    for particle in particles:
+        for i in range(2):
+            r1, r2 = random.random(), random.random()
+            cognitive = c1 * r1 * (particle['best_position'][i] - particle['position'][i])
+            social = c2 * r2 * (global_best_position[i] - particle['position'][i])
+            particle['velocity'][i] = w * particle['velocity'][i] + cognitive + social
+
+        for i in range(2):
+            particle['position'][i] += particle['velocity'][i]
+            if i == 0:
+                particle['position'][i] = max(x_min, min(x_max, particle['position'][i]))
+            else:
+                particle['position'][i] = max(y_min, min(y_max, particle['position'][i]))
+
+        score = power_consumption(particle['position'])
+        if score < particle['best_score']:
+            particle['best_position'] = particle['position'][:]
+            particle['best_score'] = score
+            if score < global_best_score:
+                global_best_position = particle['position'][:]
+                global_best_score = score
+
+print("Best design found:")
+print(f"  Filament thickness (x): {global_best_position[0]:.4f} mm")
+print(f"  Filament length    (y): {global_best_position[1]:.4f} cm")
+print(f"  Power consumption      : {global_best_score:.6f}")
